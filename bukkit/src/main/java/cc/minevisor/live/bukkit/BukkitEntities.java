@@ -41,6 +41,7 @@ import org.bukkit.entity.ZombieVillager;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ArmorMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.util.EulerAngle;
@@ -217,11 +218,27 @@ final class BukkitEntities implements EntityFeed.Platform {
             if (stack == null || stack.getType().isAir()) continue;
             JsonObject item = item(stack);
             ItemMeta meta = stack.hasItemMeta() ? stack.getItemMeta() : null;
+            JsonObject components = new JsonObject();
             if (meta instanceof LeatherArmorMeta leather) {
-                JsonObject components = new JsonObject();
                 components.addProperty("minecraft:dyed_color", leather.getColor().asRGB());
-                item.add("components", components);
             }
+            if (meta != null) {
+                Object override = call(meta, "getEnchantmentGlintOverride");
+                boolean forced = Boolean.TRUE.equals(call(meta, "hasEnchantmentGlintOverride"));
+                if (forced && override instanceof Boolean b) components.addProperty("minecraft:enchantment_glint_override", b);
+                else if (meta.hasEnchants()) components.addProperty("minecraft:enchantment_glint_override", true);
+                if (meta instanceof ArmorMeta armor && armor.hasTrim()) {
+                    String pattern = key(armor.getTrim().getPattern());
+                    String material = key(armor.getTrim().getMaterial());
+                    if (pattern != null && material != null) {
+                        JsonObject trim = new JsonObject();
+                        trim.addProperty("pattern", pattern);
+                        trim.addProperty("material", material);
+                        components.add("minecraft:trim", trim);
+                    }
+                }
+            }
+            if (components.size() > 0) item.add("components", components);
             out.add(name, item);
         }
         return out;
@@ -284,7 +301,13 @@ final class BukkitEntities implements EntityFeed.Platform {
 
     private static String key(Object value) {
         if (value == null) return null;
-        if (value instanceof Keyed k) return k.getKey().toString();
+        if (value instanceof Keyed k) {
+            try {
+                return k.getKey().toString();
+            } catch (RuntimeException e) {
+                return null; // an inline, unregistered value
+            }
+        }
         if (value instanceof DyeColor || value instanceof Enum<?>) return null;
         Object k = call(value, "getKey");
         return k == null ? null : k.toString();
