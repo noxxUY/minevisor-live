@@ -44,6 +44,13 @@ public final class LiveServer {
         return events;
     }
 
+    private volatile EntityFeed entities;
+
+    /** Lets viewers poll the live entities around their camera (see EntityFeed). */
+    public void entities(EntityFeed.Platform platform) {
+        this.entities = new EntityFeed(platform);
+    }
+
     public void start() throws IOException {
         http = HttpServer.create(new InetSocketAddress(config.bind(), config.port()), 0);
         pool = Executors.newCachedThreadPool(r -> {
@@ -146,6 +153,22 @@ public final class LiveServer {
                     }
                 }
                 return new ApiResponse(200, "application/octet-stream", out.toByteArray());
+            }
+            case "/api/entities" -> {
+                EntityFeed feed = entities;
+                if (feed == null) return ApiResponse.text(404, "text/plain", "not supported");
+                try {
+                    String dim = query.getOrDefault("dim", "overworld");
+                    double x = Double.parseDouble(query.getOrDefault("x", "0"));
+                    double z = Double.parseDouble(query.getOrDefault("z", "0"));
+                    double r = Double.parseDouble(query.getOrDefault("r", "96"));
+                    long since = Long.parseLong(query.getOrDefault("since", "0"));
+                    return ApiResponse.text(200, "application/json", feed.query(dim, x, z, r, since).toString());
+                } catch (NumberFormatException e) {
+                    return ApiResponse.text(400, "text/plain", "bad number");
+                } catch (Exception e) {
+                    return ApiResponse.text(503, "text/plain", "server busy");
+                }
             }
             case "/api/map/surface" -> {
                 String regionPath = query.get("path");

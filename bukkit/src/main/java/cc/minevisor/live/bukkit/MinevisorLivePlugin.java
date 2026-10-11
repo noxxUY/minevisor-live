@@ -50,6 +50,7 @@ public final class MinevisorLivePlugin extends JavaPlugin {
         tokens = new TokenStore(getDataFolder().toPath().resolve("link-token.json"));
 
         server = new LiveServer(liveConfig, new VirtualFiles(layout()), tokens, () -> infoSnapshot.deepCopy(), getLogger());
+        server.entities(new BukkitEntities(this));
         try {
             server.start();
         } catch (IOException e) {

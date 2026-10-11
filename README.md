@@ -90,6 +90,12 @@ Minecraft server + plugin  ──HTTP + live events──►  browser (minevisor
   `level.dat` and `data/**/*.dat` before they're sent. Both the classic layout and
   the 26.x one (`dimensions/`, `players/`) work, including Spigot's
   separate `world_nether` / `world_the_end` folders.
+- `GET /api/entities?dim=&x=&z=&r=&since=` answers with the mobs, items,
+  minecarts and other non-player entities within `r` blocks (up to 192) of
+  x, z: position and rotation every time, and each one's look (variant,
+  colour, profession, held item... under its save NBT names) only when it's
+  new or changed since `since`. The workspace polls it a few times a second
+  around the 3D camera.
 - `GET /api/events` streams Server-Sent Events: `players` twice a second,
   `blocks` once per tick with every changed block's full state
   (`minecraft:oak_stairs[facing=north,...]`), `join`, `quit`, `death`, and

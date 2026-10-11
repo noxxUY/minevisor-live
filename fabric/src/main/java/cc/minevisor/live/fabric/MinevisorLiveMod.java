@@ -219,6 +219,7 @@ public final class MinevisorLiveMod implements ModInitializer {
             public void close() { }
         });
         http = new LiveServer(config, new VirtualFiles(layout), tokens, () -> info.deepCopy(), jul);
+        http.entities(new FabricEntities(server));
         try {
             http.start();
         } catch (IOException e) {
