@@ -4,6 +4,7 @@ import cc.minevisor.live.DiscordAdmin;
 import cc.minevisor.live.DiscordConfig;
 import cc.minevisor.live.LiveHelp;
 import cc.minevisor.live.LiveJson;
+import cc.minevisor.live.UpdateChecker;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.ClickEvent;
@@ -69,6 +70,18 @@ final class MinevisorCommand implements CommandExecutor, TabCompleter {
 
     static void ok(CommandSender sender, String message) {
         send(sender, text("✔ ", ChatColor.GREEN), text(message, ChatColor.GRAY));
+    }
+
+    /** Tells an admin a newer release is out, with a link to it. */
+    static void updateNotice(CommandSender sender, UpdateChecker.Update update, String current) {
+        TextComponent link = text("[Download]", ChatColor.AQUA);
+        link.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, update.url()));
+        hover(link, "Open the " + update.version() + " release on GitHub");
+        send(sender, text("⬆ ", ChatColor.YELLOW),
+                text("Update available: ", ChatColor.GRAY),
+                text(update.version(), ChatColor.YELLOW),
+                text(" (you have " + current + ") ", ChatColor.DARK_GRAY),
+                link);
     }
 
     static void error(CommandSender sender, String message) {

@@ -4,6 +4,7 @@ import cc.minevisor.live.DiscordAdmin;
 import cc.minevisor.live.DiscordConfig;
 import cc.minevisor.live.LiveHelp;
 import cc.minevisor.live.LiveJson;
+import cc.minevisor.live.UpdateChecker;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -71,6 +72,18 @@ final class MinevisorCommand {
 
     static void ok(CommandSourceStack source, String message) {
         say(source, prefixed(text("✔ ", ChatFormatting.GREEN), text(message, ChatFormatting.GRAY)));
+    }
+
+    /** Tells an admin a newer release is out, with a link to it. */
+    static void updateNotice(ServerPlayer player, UpdateChecker.Update update, String current) {
+        MutableComponent link = text("[Download]", ChatFormatting.AQUA)
+                .withStyle(s -> s.withClickEvent(new ClickEvent.OpenUrl(URI.create(update.url())))
+                        .withHoverEvent(new HoverEvent.ShowText(Component.literal("Open the " + update.version() + " release on GitHub"))));
+        player.sendSystemMessage(prefixed(text("⬆ ", ChatFormatting.YELLOW),
+                text("Update available: ", ChatFormatting.GRAY),
+                text(update.version(), ChatFormatting.YELLOW),
+                text(" (you have " + current + ") ", ChatFormatting.DARK_GRAY),
+                link));
     }
 
     static void error(CommandSourceStack source, String message) {

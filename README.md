@@ -51,6 +51,11 @@ Paper/Spigot the console line that would contain them (`issued server
 command: …`) is dropped; a line without the secret is logged instead. On
 Fabric they need permission level 3.
 
+When a newer release is out for your Minecraft version, the console says so
+on startup (checked against GitHub then every 6 hours), and players with
+`minevisor.admin` (permission level 3 on Fabric) get a notice with a download
+link when they join.
+
 ### Config
 
 Paper/Spigot: `plugins/MinevisorLive/config.yml`. Fabric: `config/minevisor-live.json`.
@@ -81,7 +86,8 @@ Minecraft server + plugin  ──HTTP + live events──►  browser (minevisor
 
 - `GET /api/fs/*` serves the world folder (regions, level.dat, player data)
   so the workspace reads it like a local save. Only those files are
-  exposed: no server.properties, plugins or logs. Both the classic layout and
+  exposed: no server.properties, plugins or logs. The world seed is zeroed in
+  `level.dat` and `data/**/*.dat` before they're sent. Both the classic layout and
   the 26.x one (`dimensions/`, `players/`) work, including Spigot's
   separate `world_nether` / `world_the_end` folders.
 - `GET /api/events` streams Server-Sent Events: `players` twice a second,

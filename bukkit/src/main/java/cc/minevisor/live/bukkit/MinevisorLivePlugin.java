@@ -11,6 +11,7 @@ import cc.minevisor.live.RelayClient;
 import cc.minevisor.live.Swings;
 import cc.minevisor.live.TimeSync;
 import cc.minevisor.live.TokenStore;
+import cc.minevisor.live.UpdateChecker;
 import cc.minevisor.live.VirtualFiles;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -39,6 +40,7 @@ public final class MinevisorLivePlugin extends JavaPlugin {
     private BlockFeed<World> blocks;
     private Discord discord;
     private DiscordConfig discordConfig;
+    private UpdateChecker updates;
     private volatile JsonObject infoSnapshot = new JsonObject();
 
     @Override
@@ -92,6 +94,20 @@ public final class MinevisorLivePlugin extends JavaPlugin {
                 announceSaved();
             }
         }, this);
+        updates = new UpdateChecker(getDescription().getVersion(), Bukkit.getBukkitVersion(), getLogger());
+        updates.start();
+        getServer().getPluginManager().registerEvents(new org.bukkit.event.Listener() {
+            @org.bukkit.event.EventHandler
+            public void onJoin(org.bukkit.event.player.PlayerJoinEvent e) {
+                Player player = e.getPlayer();
+                UpdateChecker.Update update = updates.available();
+                if (update == null || !player.hasPermission("minevisor.admin")) return;
+                // After the join messages, so it isn't lost among them.
+                Bukkit.getScheduler().runTaskLater(MinevisorLivePlugin.this, () -> {
+                    if (player.isOnline()) MinevisorCommand.updateNotice(player, update, updates.current());
+                }, 60L);
+            }
+        }, this);
         MinevisorCommand command = new MinevisorCommand(this);
         Objects.requireNonNull(getCommand("minevisor")).setExecutor(command);
         Objects.requireNonNull(getCommand("minevisor")).setTabCompleter(command);
@@ -140,6 +156,7 @@ public final class MinevisorLivePlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (updates != null) updates.stop();
         if (discord != null && discord.enabled()) discord.stop();
         if (relay != null) relay.stop();
         if (server != null) server.stop();

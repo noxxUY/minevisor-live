@@ -11,6 +11,7 @@ import cc.minevisor.live.TimeSync;
 import cc.minevisor.live.RelayClient;
 import cc.minevisor.live.Swings;
 import cc.minevisor.live.TokenStore;
+import cc.minevisor.live.UpdateChecker;
 import cc.minevisor.live.VirtualFiles;
 import cc.minevisor.live.fabric.mixin.PlayerListAccessor;
 import com.google.gson.JsonArray;
@@ -20,6 +21,7 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.commands.arguments.blocks.BlockStateParser;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -73,6 +75,7 @@ public final class MinevisorLiveMod implements ModInitializer {
     private PlayerSync<ServerPlayer> playerSync;
     private TimeSync timeSync;
     private RelayClient relay;
+    private UpdateChecker updates;
 
     RelayClient relay() {
         return relay;
@@ -98,6 +101,15 @@ public final class MinevisorLiveMod implements ModInitializer {
         ServerLifecycleEvents.SERVER_STOPPING.register(s -> stop());
         ServerTickEvents.END_SERVER_TICK.register(s -> tick());
         ServerLifecycleEvents.AFTER_SAVE.register((s, flush, force) -> savedSince = true);
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, s) -> {
+            ServerPlayer player = handler.player;
+            UpdateChecker.Update update = updates == null ? null : updates.available();
+            if (update == null || !player.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_ADMIN)) return;
+            // After the join messages, so it isn't lost among them.
+            java.util.concurrent.CompletableFuture.delayedExecutor(3, TimeUnit.SECONDS).execute(() -> s.execute(() -> {
+                if (!player.hasDisconnected()) MinevisorCommand.updateNotice(player, update, updates.current());
+            }));
+        });
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
             if (http != null && entity instanceof ServerPlayer p) {
                 BlockPos pos = p.blockPosition();
@@ -264,6 +276,10 @@ public final class MinevisorLiveMod implements ModInitializer {
         online.clear();
         publishPlayers();
         julLogger = jul;
+        String version = net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("minevisor-live")
+                .map(c -> c.getMetadata().getVersion().getFriendlyString()).orElse("0");
+        updates = new UpdateChecker(version, server.getServerVersion(), jul);
+        updates.start();
         discordConfig = ModConfig.discord();
         discord = newDiscord(discordConfig);
         if (discord.enabled()) discord.start();
@@ -288,6 +304,8 @@ public final class MinevisorLiveMod implements ModInitializer {
     }
 
     private void stop() {
+        if (updates != null) updates.stop();
+        updates = null;
         if (discord != null && discord.enabled()) discord.stop();
         discord = null;
         if (pausedFlusher != null) pausedFlusher.shutdownNow();
