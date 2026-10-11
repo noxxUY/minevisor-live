@@ -134,3 +134,7 @@ run/     local test servers (git-ignored)
 - [x] Discord webhook and bot
 - [x] View-only workspace: click a player to follow them with the camera
 - [x] Animated players: walking, head and body turning, sneaking, swimming, gliding, sleeping, riding, swings, hits, held items, name tags
+
+## License
+
+[MIT](LICENSE). Not affiliated with Mojang or Microsoft.
