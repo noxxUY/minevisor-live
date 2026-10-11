@@ -1,0 +1,21 @@
+name: MinevisorLive
+version: ${version}
+main: cc.minevisor.live.bukkit.MinevisorLivePlugin
+api-version: "1.21"
+description: Live view of your server in the minevisor workspace.
+author: noxxUY
+website: https://minevisor.cc
+
+commands:
+  minevisor:
+    description: Get a link to the live workspace.
+    usage: /minevisor [help|link|revoke|status|settings|discord|webhook|token|status_channel_id|status_interval|banner|name|motd]
+    permission: minevisor.link
+
+permissions:
+  minevisor.link:
+    description: Open the live workspace.
+    default: op
+  minevisor.admin:
+    description: Set up Discord from in game (/minevisor webhook, token, status_channel_id).
+    default: op

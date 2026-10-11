@@ -1,0 +1,9 @@
+{
+  "required": true,
+  "package": "cc.minevisor.live.fabric.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": ["LevelMixin", "LivingEntityMixin", "PlayerAdvancementsMixin", "PlayerListAccessor"],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

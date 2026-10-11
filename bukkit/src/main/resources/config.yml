@@ -1,0 +1,61 @@
+# minevisor live
+
+http:
+  bind: 0.0.0.0
+  port: 8100
+  # Let anyone who knows the address watch, without /minevisor link.
+  # The workspace is always view-only.
+  public-read: false
+  allowed-origin: "*"
+  max-viewers: 32
+
+# How browsers reach this server. Browsers block an https page from talking
+# to plain http, except on localhost. For a public server, put this behind
+# https (Cloudflare Tunnel, nginx, Caddy) and use that address here.
+public-url: "http://localhost:8100"
+
+# The workspace page that /minevisor link opens. "self" (default) is the copy
+# this plugin serves at <public-url>/workspace/, which always works. An https
+# page like minevisor.cc can't reach a plain-http server from the browser.
+web-url: "self"
+
+# The relay lets https://minevisor.cc watch this server without opening a
+# port: the plugin connects out to it. "off" turns it off; links then use
+# public-url above.
+relay:
+  url: "wss://minevisor-relay.noxxzera.workers.dev"
+  web-url: "https://minevisor.cc/workspace/"
+
+live:
+  # Player updates (position, head, pose, swings) per second, 1 to 20.
+  # Nothing is sent while everyone stands still.
+  player-updates-per-second: 10
+  # After a world save, viewers reread the chunks that changed on disk (to
+  # catch what no event covers, like /fill or other plugins), at most this often.
+  refresh-seconds: 300
+  # Force a world save this often while someone watches. Paper warns that
+  # plugin-forced saves hurt performance, so 0 (off) is recommended.
+  save-interval-seconds: 0
+
+discord:
+  # Webhook for announcements: server start/stop, joins, leaves and deaths.
+  # Server Settings > Integrations > Webhooks in Discord. Empty turns it off.
+  webhook-url: ""
+  announce-joins: true
+  announce-deaths: true
+  # Bot token (discord.com/developers). Adds /status and /players, and keeps
+  # a status message up to date in status-channel-id. Empty turns it off.
+  bot-token: ""
+  status-channel-id: ""
+  # Minutes between status message edits. It is edited in place, never reposted.
+  status-interval-minutes: 10
+  # Image on top of /status, /players and the status message:
+  # auto = a live map of where players are (or hang out most), off, or an https URL.
+  # In game: /minevisor banner <auto|off|url>
+  banner-url: "auto"
+  # Name on the Discord cards and banner; empty shows none. In game: /minevisor name <text|off>
+  server-name: ""
+  # Show the server list MOTD on the cards. In game: /minevisor motd <on|off>
+  show-motd: true
+  # Death announcements include the dimension and coordinates.
+  death-location: true

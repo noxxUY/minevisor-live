@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "minevisor-live",
+  "version": "${version}",
+  "name": "minevisor live",
+  "description": "Live view of your server in the minevisor workspace: 3D terrain, players and block changes in real time.",
+  "authors": ["noxxUY"],
+  "contact": {
+    "homepage": "https://minevisor.cc",
+    "sources": "https://github.com/noxxUY/minevisor-live"
+  },
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["cc.minevisor.live.fabric.MinevisorLiveMod"]
+  },
+  "mixins": ["minevisor-live.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.19.0",
+    "minecraft": "${minecraft}",
+    "fabric-api": "*",
+    "java": ">=25"
+  }
+}

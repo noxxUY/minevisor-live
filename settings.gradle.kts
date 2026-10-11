@@ -1,0 +1,11 @@
+pluginManagement {
+    repositories {
+        maven("https://maven.fabricmc.net/")
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "minevisor-live"
+
+include("core", "bukkit", "fabric")
