@@ -87,7 +87,13 @@ public final class VirtualFiles {
         if (virtual == null || !isAllowedFile(virtual)) return null;
         Path file = physical(virtual);
         if (!Files.isRegularFile(file) || Files.size(file) > MAX_BYTES) return null;
-        return Files.readAllBytes(file);
+        byte[] bytes = Files.readAllBytes(file);
+        // The seed never leaves the server; a file that can't be copied
+        // without it isn't sent at all.
+        if (virtual.equals("level.dat") || (virtual.startsWith("data/") && virtual.endsWith(".dat"))) {
+            return SeedRedactor.redact(bytes);
+        }
+        return bytes;
     }
 
     private Path region(String path) throws IOException {
