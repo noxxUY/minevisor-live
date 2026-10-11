@@ -9,6 +9,8 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Ageable;
+import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Axolotl;
 import org.bukkit.entity.Bee;
 import org.bukkit.entity.EnderCrystal;
@@ -36,7 +38,12 @@ import org.bukkit.entity.Villager;
 import org.bukkit.entity.Wolf;
 import org.bukkit.entity.Zombie;
 import org.bukkit.entity.ZombieVillager;
+import org.bukkit.inventory.EntityEquipment;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.LeatherArmorMeta;
+import org.bukkit.util.EulerAngle;
 import org.bukkit.plugin.Plugin;
 
 import java.lang.reflect.Method;
@@ -151,6 +158,24 @@ final class BukkitEntities implements EntityFeed.Platform {
             state.addProperty("Name", f.getBlockData().getMaterial().getKey().toString());
             o.add("BlockState", state);
         }
+        if (e instanceof LivingEntity living) {
+            JsonObject equipment = equipment(living);
+            if (equipment.size() > 0) o.add("equipment", equipment);
+            if (Boolean.TRUE.equals(call(e, "isLeftHanded"))) o.addProperty("LeftHanded", 1);
+        }
+        if (e instanceof ArmorStand stand) {
+            if (stand.hasArms()) o.addProperty("ShowArms", 1);
+            if (!stand.hasBasePlate()) o.addProperty("NoBasePlate", 1);
+            if (stand.isSmall()) o.addProperty("Small", 1);
+            JsonObject pose = new JsonObject();
+            pose.add("Head", angles(stand.getHeadPose()));
+            pose.add("Body", angles(stand.getBodyPose()));
+            pose.add("LeftArm", angles(stand.getLeftArmPose()));
+            pose.add("RightArm", angles(stand.getRightArmPose()));
+            pose.add("LeftLeg", angles(stand.getLeftLegPose()));
+            pose.add("RightLeg", angles(stand.getRightLegPose()));
+            o.add("Pose", pose);
+        }
         // Registry-backed variants (cats, frogs, cows, pigs, chickens, salmon): the method
         // exists on newer servers only, so they're looked up by name.
         String variant = key(call(e, "getCatType"));
@@ -163,6 +188,51 @@ final class BukkitEntities implements EntityFeed.Platform {
             else o.addProperty("variant", variant);
         }
         return o;
+    }
+
+    /** What it wears and holds, under the slot names of a save's equipment compound. */
+    private static JsonObject equipment(LivingEntity living) {
+        JsonObject out = new JsonObject();
+        EntityEquipment eq = living.getEquipment();
+        if (eq == null) return out;
+        for (EquipmentSlot slot : EquipmentSlot.values()) {
+            String name = switch (slot.name()) {
+                case "HAND" -> "mainhand";
+                case "OFF_HAND" -> "offhand";
+                case "FEET" -> "feet";
+                case "LEGS" -> "legs";
+                case "CHEST" -> "chest";
+                case "HEAD" -> "head";
+                case "BODY" -> "body";
+                case "SADDLE" -> "saddle";
+                default -> null;
+            };
+            if (name == null) continue;
+            ItemStack stack;
+            try {
+                stack = eq.getItem(slot);
+            } catch (RuntimeException | LinkageError ex) {
+                continue; // a slot this entity doesn't have
+            }
+            if (stack == null || stack.getType().isAir()) continue;
+            JsonObject item = item(stack);
+            ItemMeta meta = stack.hasItemMeta() ? stack.getItemMeta() : null;
+            if (meta instanceof LeatherArmorMeta leather) {
+                JsonObject components = new JsonObject();
+                components.addProperty("minecraft:dyed_color", leather.getColor().asRGB());
+                item.add("components", components);
+            }
+            out.add(name, item);
+        }
+        return out;
+    }
+
+    private static com.google.gson.JsonArray angles(EulerAngle a) {
+        com.google.gson.JsonArray out = new com.google.gson.JsonArray();
+        out.add(Math.toDegrees(a.getX()));
+        out.add(Math.toDegrees(a.getY()));
+        out.add(Math.toDegrees(a.getZ()));
+        return out;
     }
 
     private static JsonObject villager(Object type, Object profession) {

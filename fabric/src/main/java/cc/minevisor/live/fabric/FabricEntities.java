@@ -39,7 +39,8 @@ final class FabricEntities implements EntityFeed.Platform {
     private static final Set<String> LOOK = Set.of(
             "Age", "IsBaby", "Owner", "Color", "Sheared", "VillagerData", "Variant", "variant", "Type", "MainGene",
             "HasNectar", "RabbitType", "PuffState", "Size", "ShowBottom", "Item", "Facing", "facing", "BlockState",
-            "type", "CollarColor", "weather_state", "SkeletonType", "Profession");
+            "type", "CollarColor", "weather_state", "SkeletonType", "Profession",
+            "equipment", "LeftHanded", "ShowArms", "NoBasePlate", "Small", "Pose");
 
     private final MinecraftServer server;
 
