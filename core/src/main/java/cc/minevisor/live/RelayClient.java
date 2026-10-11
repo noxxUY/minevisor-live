@@ -44,7 +44,8 @@ public final class RelayClient implements EventHub.Remote {
     private final Logger log;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     private final ExecutorService sender = Executors.newSingleThreadExecutor(daemon("minevisor-relay-send"));
-    private final ExecutorService workers = Executors.newFixedThreadPool(2, daemon("minevisor-relay-req"));
+    private final ExecutorService workers = Executors.newFixedThreadPool(
+            Math.max(2, Math.min(4, Runtime.getRuntime().availableProcessors() - 1)), daemon("minevisor-relay-req"));
     private final ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor(daemon("minevisor-relay"));
 
     private String serverId;

@@ -93,6 +93,13 @@ final class RegionSurface {
             if (root.containsKey("Level") || !root.containsKey("sections")) throw new Unsupported("pre-1.18 chunk");
             Section[] sections = sections(root);
             if (sections.length == 0) continue;
+            int minSection = Integer.MAX_VALUE, maxSection = Integer.MIN_VALUE;
+            for (Section s : sections) {
+                minSection = Math.min(minSection, s.y);
+                maxSection = Math.max(maxSection, s.y);
+            }
+            Section[] byY = new Section[maxSection - minSection + 1];
+            for (Section s : sections) if (byY[s.y - minSection] == null) byY[s.y - minSection] = s;
             int cx = index & 31, cz = index >> 5;
             present[index] = true;
             inhabited[index] = Nbt.number(root.get("InhabitedTime"), 0);
@@ -103,31 +110,31 @@ final class RegionSurface {
                     int column = x + z * 16;
                     int y = heights != null ? (int) unpack(heights, 256, 9, column) - 1 + minY : nether ? 127 : 80;
                     int maxSteps = nether ? 128 : Math.max(48, y - minY + 8);
-                    String name = "minecraft:air";
-                    String biome = "";
+                    int block = NONE;
+                    int biome = NONE;
                     int foundY = y;
                     for (int step = 0; step < maxSteps; step++) {
-                        String here = blockAt(sections, x, y, z);
-                        String plain = here.startsWith("minecraft:") ? here.substring(10) : here;
-                        if (nether && plain.equals("bedrock") && y > 96) {
+                        int sy = Math.floorDiv(y, 16) - minSection;
+                        Section s = sy >= 0 && sy < byY.length ? byY[sy] : null;
+                        int entry = s == null ? -1 : s.entry(x, y - s.y * 16, z);
+                        if (entry >= 0 && nether && s.bedrock[entry] && y > 96) {
                             y--;
                             continue;
                         }
-                        if (invisible(plain)) {
+                        if (entry < 0 || s.invisible[entry]) {
                             y--;
                             if (y < minY) break;
                             continue;
                         }
-                        name = here;
-                        biome = biomeAt(sections, x, y, z);
+                        block = s.blockId(entry, blockIds, blocks);
+                        biome = s.biomeId(x, y - s.y * 16, z, biomeIds, biomes);
                         foundY = y;
                         break;
                     }
                     int px = cx * 16 + x, pz = cz * 16 + z;
                     int i = pz * 512 + px;
-                    String plain = name.startsWith("minecraft:") ? name.substring(10) : name;
-                    if (!invisible(plain)) blockPlane[i] = (short) id(blockIds, blocks, name);
-                    if (!biome.isEmpty()) biomePlane[i] = (short) id(biomeIds, biomes, biome);
+                    if (block != NONE) blockPlane[i] = (short) block;
+                    if (biome != NONE) biomePlane[i] = (short) biome;
                     yPlane[i] = (short) foundY;
                 }
             }
@@ -194,7 +201,65 @@ final class RegionSurface {
         }
     }
 
-    private record Section(int y, String[] names, long[] data, String[] biomes, long[] biomeData) {
+    /**
+     * A chunk section with its palettes worked out once: which entries are
+     * invisible, and their ids in the region's lists (given out on first
+     * use, so the lists only hold what's on the surface).
+     */
+    private static final class Section {
+        final int y;
+        final String[] names;
+        final long[] data;
+        final int bits;
+        final boolean[] invisible;
+        final boolean[] bedrock;
+        final int[] ids;
+        final String[] biomes;
+        final long[] biomeData;
+        final int biomeBits;
+        final int[] biomeIds;
+
+        Section(int y, String[] names, long[] data, String[] biomes, long[] biomeData) {
+            this.y = y;
+            this.names = names;
+            this.data = data;
+            this.bits = Math.max(4, bitsFor(names.length));
+            this.invisible = new boolean[names.length];
+            this.bedrock = new boolean[names.length];
+            this.ids = new int[names.length];
+            for (int i = 0; i < names.length; i++) {
+                String plain = names[i].startsWith("minecraft:") ? names[i].substring(10) : names[i];
+                invisible[i] = invisible(plain);
+                bedrock[i] = plain.equals("bedrock");
+                ids[i] = -1;
+            }
+            this.biomes = biomes;
+            this.biomeData = biomeData;
+            this.biomeBits = Math.max(1, bitsFor(biomes.length));
+            this.biomeIds = new int[biomes.length];
+            java.util.Arrays.fill(biomeIds, -1);
+        }
+
+        /** Palette entry at a local position, or -1 past the palette. */
+        int entry(int x, int ly, int z) {
+            int index = names.length == 1 ? 0 : (int) unpack(data, 4096, bits, (ly << 8) | (z << 4) | x);
+            return index < names.length ? index : -1;
+        }
+
+        int blockId(int entry, Map<String, Integer> idMap, List<String> list) {
+            int id = ids[entry];
+            if (id < 0) id = ids[entry] = id(idMap, list, names[entry]);
+            return id;
+        }
+
+        int biomeId(int x, int ly, int z, Map<String, Integer> idMap, List<String> list) {
+            if (biomes.length == 0) return NONE;
+            int index = biomes.length == 1 ? 0 : (int) unpack(biomeData, 64, biomeBits, ((ly >> 2) << 4) | ((z >> 2) << 2) | (x >> 2));
+            if (index >= biomes.length || biomes[index].isEmpty()) return NONE;
+            int id = biomeIds[index];
+            if (id < 0) id = biomeIds[index] = id(idMap, list, biomes[index]);
+            return id;
+        }
     }
 
     private static String paletteName(Object entry) {
@@ -242,30 +307,6 @@ final class RegionSurface {
             if (maps.get(key) instanceof long[] a && a.length > 0) return a;
         }
         return null;
-    }
-
-    private static Section section(Section[] sections, int y) {
-        int sy = Math.floorDiv(y, 16);
-        for (Section s : sections) if (s.y() == sy) return s;
-        return null;
-    }
-
-    private static String blockAt(Section[] sections, int x, int y, int z) {
-        Section s = section(sections, y);
-        if (s == null) return "minecraft:air";
-        int ly = y - s.y() * 16;
-        int bits = Math.max(4, bitsFor(s.names().length));
-        int index = s.names().length == 1 ? 0 : (int) unpack(s.data(), 4096, bits, (ly << 8) | (z << 4) | x);
-        return index < s.names().length ? s.names()[index] : "minecraft:air";
-    }
-
-    private static String biomeAt(Section[] sections, int x, int y, int z) {
-        Section s = section(sections, y);
-        if (s == null || s.biomes().length == 0) return "";
-        int ly = y - s.y() * 16;
-        int index = s.biomes().length == 1 ? 0
-                : (int) unpack(s.biomeData(), 64, Math.max(1, bitsFor(s.biomes().length)), ((ly >> 2) << 4) | ((z >> 2) << 2) | (x >> 2));
-        return index < s.biomes().length ? s.biomes()[index] : "";
     }
 
     private static int bitsFor(int size) {
