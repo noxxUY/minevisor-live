@@ -41,7 +41,11 @@ import org.bukkit.entity.ZombieVillager;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.block.banner.Pattern;
 import org.bukkit.inventory.meta.ArmorMeta;
+import org.bukkit.inventory.meta.BannerMeta;
+import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.profile.PlayerProfile;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.util.EulerAngle;
@@ -236,6 +240,34 @@ final class BukkitEntities implements EntityFeed.Platform {
                         trim.addProperty("material", material);
                         components.add("minecraft:trim", trim);
                     }
+                }
+            }
+            if (meta instanceof BannerMeta banner) {
+                // Shields: their banner, under 1.20.5+ component names.
+                if (call(meta, "getBaseColor") instanceof DyeColor base) components.addProperty("minecraft:base_color", base.name().toLowerCase());
+                com.google.gson.JsonArray patterns = new com.google.gson.JsonArray();
+                for (Pattern pattern : banner.getPatterns()) {
+                    String type = key(pattern.getPattern());
+                    if (type == null) continue;
+                    JsonObject p = new JsonObject();
+                    p.addProperty("pattern", type);
+                    p.addProperty("color", pattern.getColor().name().toLowerCase());
+                    patterns.add(p);
+                }
+                if (!patterns.isEmpty()) components.add("minecraft:banner_patterns", patterns);
+            }
+            if (meta instanceof SkullMeta skull) {
+                try {
+                    PlayerProfile owner = skull.getOwnerProfile();
+                    if (owner != null) {
+                        JsonObject profile = new JsonObject();
+                        if (owner.getName() != null) profile.addProperty("name", owner.getName());
+                        if (owner.getUniqueId() != null) profile.addProperty("id", owner.getUniqueId().toString());
+                        if (owner.getTextures().getSkin() != null) profile.addProperty("skin", owner.getTextures().getSkin().toString());
+                        components.add("minecraft:profile", profile);
+                    }
+                } catch (RuntimeException | LinkageError ignored) {
+                    // No profile API on this server.
                 }
             }
             if (components.size() > 0) item.add("components", components);
