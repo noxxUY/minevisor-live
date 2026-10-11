@@ -9,11 +9,13 @@ import cc.minevisor.live.LiveServer;
 import cc.minevisor.live.PlayerSync;
 import cc.minevisor.live.RelayClient;
 import cc.minevisor.live.Swings;
+import cc.minevisor.live.TimeSync;
 import cc.minevisor.live.TokenStore;
 import cc.minevisor.live.VirtualFiles;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import org.bukkit.Bukkit;
+import org.bukkit.GameRule;
 import org.bukkit.World;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -126,6 +128,8 @@ public final class MinevisorLivePlugin extends JavaPlugin {
 
         Bukkit.getScheduler().runTaskTimer(this, blocks::flush, 1L, 1L);
         Bukkit.getScheduler().runTaskTimer(this, () -> playerSync.tick(Bukkit.getOnlinePlayers()), 1L, 1L);
+        timeSync = new TimeSync(server.events());
+        Bukkit.getScheduler().runTaskTimer(this, this::tickTime, 1L, 1L);
         Bukkit.getScheduler().runTaskTimer(this, this::tick, 20L, liveConfig.playersIntervalTicks());
         if (liveConfig.saveIntervalSeconds() > 0) {
             long period = 20L * liveConfig.saveIntervalSeconds();
@@ -253,6 +257,33 @@ public final class MinevisorLivePlugin extends JavaPlugin {
         return relay;
     }
     private PlayerSync<Player> playerSync;
+    private TimeSync timeSync;
+    private GameRule<Boolean> advanceTime;
+    private boolean advanceTimeLooked;
+
+    private void tickTime() {
+        List<World> worlds = Bukkit.getWorlds();
+        if (worlds.isEmpty()) return;
+        World world = worlds.get(0);
+        timeSync.tick(world.getTime(), daylightCycle(world));
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean daylightCycle(World world) {
+        if (!advanceTimeLooked) {
+            advanceTimeLooked = true;
+            for (String name : new String[] {"advance_time", "advanceTime", "doDaylightCycle"}) {
+                GameRule<?> rule = GameRule.getByName(name);
+                if (rule != null && rule.getType() == Boolean.class) {
+                    advanceTime = (GameRule<Boolean>) rule;
+                    break;
+                }
+            }
+        }
+        if (advanceTime == null) return true;
+        Boolean value = world.getGameRuleValue(advanceTime);
+        return value == null || value;
+    }
     private final java.util.Map<BlockData, String> stateNames = new java.util.HashMap<>();
     private String lastPlayers;
 

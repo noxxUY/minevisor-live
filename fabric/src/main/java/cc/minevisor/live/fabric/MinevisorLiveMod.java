@@ -7,6 +7,7 @@ import cc.minevisor.live.LiveConfig;
 import cc.minevisor.live.LiveJson;
 import cc.minevisor.live.LiveServer;
 import cc.minevisor.live.PlayerSync;
+import cc.minevisor.live.TimeSync;
 import cc.minevisor.live.RelayClient;
 import cc.minevisor.live.Swings;
 import cc.minevisor.live.TokenStore;
@@ -25,6 +26,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -69,6 +71,7 @@ public final class MinevisorLiveMod implements ModInitializer {
     private long ticks;
     private long savedAt = -1;
     private PlayerSync<ServerPlayer> playerSync;
+    private TimeSync timeSync;
     private RelayClient relay;
 
     RelayClient relay() {
@@ -233,6 +236,7 @@ public final class MinevisorLiveMod implements ModInitializer {
                 return STATE_NAMES.computeIfAbsent(level.getBlockState(new BlockPos(x, y, z)), BlockStateParser::serialize);
             }
         });
+        timeSync = new TimeSync(http.events());
         playerSync = new PlayerSync<>(http.events(), new PlayerSync.Platform<>() {
             @Override
             public UUID id(ServerPlayer p) {
@@ -304,6 +308,8 @@ public final class MinevisorLiveMod implements ModInitializer {
         ticks++;
         blocks.flush();
         playerSync.tick(server.getPlayerList().getPlayers());
+        ServerLevel overworld = server.overworld();
+        timeSync.tick(overworld.getOverworldClockTime() % 24000L, overworld.getGameRules().get(GameRules.ADVANCE_TIME));
         long every = http.events().clientCount() > 0 ? config.playersIntervalTicks() : Math.max(20, config.playersIntervalTicks());
         if (ticks % every == 0) publishPlayers();
         if (config.saveIntervalSeconds() > 0 && ticks % (20L * config.saveIntervalSeconds()) == 0) saveIfWatched();
